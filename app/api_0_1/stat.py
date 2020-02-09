@@ -60,19 +60,19 @@ def get_stats(query_params, func):
         db_conn.close()
 
 
-@api.route("/stat/browser", methods=['GET'])
+@api.route("/stats/browser", methods=['GET'])
 def get_browser_stat():
     result = get_stats(request.args, BrowserDetectedBreakdown)
     return result
 
 
-@api.route("/stat/os", methods=['GET'])
+@api.route("/stats/os", methods=['GET'])
 def get_os_stat():
     result = get_stats(request.args, OSDetectedBreakdown)
     return result
 
 
-@api.route("/stat/device", methods=['GET'])
+@api.route("/stats/device", methods=['GET'])
 def get_device_stat():
     result = get_stats(request.args, DeviceTypeBreakdown)
     return result

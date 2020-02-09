@@ -98,7 +98,7 @@ def rebuild_database(config_file, input_file):
     """Populate database with tables"""
     logger.info(f"(Re)building database...")
 
-    sql_table_files = ["schema.sql", "v_schema.sql"]
+    sql_table_files = ["schema.sql"]
     sql_index_files = ["index.sql"]
 
     config = pyhocon.ConfigFactory.parse_file(config_file)
