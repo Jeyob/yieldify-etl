@@ -47,12 +47,13 @@ def ip_geocoding(ipaddress) -> (str, str):
     :return:
     """
     reader = None
+    reader = geoip2.database.Reader(Path('GeoLite2/GeoLite2-City.mmdb'))
     try:
-        reader = geoip2.database.Reader(Path('GeoLite2/GeoLite2-City.mmdb'))
         response = reader.city(ip_address=ipaddress)
-        return (response.country.name, response.city.name)
     except Exception as e:
         print(e)
+    else:
+        return (response.country.name, response.city.name)
     finally:
         reader.close()
 

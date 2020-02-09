@@ -3,16 +3,15 @@ import gzip
 import argparse
 import textwrap
 import logging
-import configparser
 import sys
 import pyhocon
-from app import db_connect, top_os_by_unique_users, top_browsers_by_unique_users, top_cities_by_events, top_countries_by_events
+from app import *
 from pathlib import Path
 import sqlite3
-
+import os
+from app import create_app
 # external libraries
 
-# TODO create methods for stdout or API
 
 logger = logging.getLogger(__name__)
 
@@ -44,26 +43,22 @@ def process_config(args):
         raise ValueError(f"Could not parse config file {config_file}: {str(e)}")
 
 
-def run_stat(args, run_type):
-    logger.info("running stats jobs")
-
-    config = pyhocon.ConfigFactory.parse_file(args.config_file)
+def stats_to_stdout(config_file: str):
+    config = pyhocon.ConfigFactory.parse_file(config_file)
     conn = db_connect(config.connections.databases.sqlite.path)
     conn.isolation_level = None
 
-    stat_jobs = [("Top countries by events", top_countries_by_events),
-                 ("Top cities by events", top_cities_by_events),
-                 ("Top browsers by unique users", top_browsers_by_unique_users),
-                 ("Top OS by unique users", top_os_by_unique_users)]
-
+    stat_jobs = [("Top countries by events", TopCountriesByEvents(conn)),
+                 ("Top cities by events", TopCitiesByEvents(conn)),
+                 ("Top browsers by unique users", TopBrowsersByUniqueUsers(conn)),
+                 ("Top OS by unique users", TopOSByUniqueUsers(conn))]
     try:
         with conn:
             for title, func in stat_jobs:
                 print(title)
-                result = func(conn)
-                i = 1
-                for name, count in result:
-                    print(f"{i}. {name} : {count}")
+                result = func.execute(db_conn=conn)
+                for i, value in enumerate(result, 1):
+                    print(f"{i}. {value[0]}")
                 print()
     except sqlite3.Error as e:
         logger.error(f"{__name__}: error ", exc_info=True)
@@ -72,22 +67,61 @@ def run_stat(args, run_type):
         conn.close()
 
 
-def rebuild_database(args):
+def stats_to_api(config_file):
+    """
+    Run a webserver to receive requests and return stats through webapi
+    :param config_file:
+    :return:
+    """
+    app = create_app()
+    app.run(host='localhost', port=8080, debug=False)
+
+
+def run_stat(args, run_type: str):
+    """
+    Calculates the stats and prints to stdout
+    :param args: parsed command line arguments
+    :param run_type: parameter provided to command choices = ('api' or 'stdout')
+    :return:
+    """
+    logger.info("running stats jobs")
+
+    if run_type == 'stdout':
+        stats_to_stdout(args.config_file)
+    elif run_type == 'api':
+        stats_to_api(args.config_file)
+    else:
+        raise ValueError(f"run_type parameter {run_type} not recognised")
+
+
+def rebuild_database(config_file, input_file):
     """Populate database with tables"""
     logger.info(f"(Re)building database...")
 
-    sql_files = ["schema.sql"]
+    sql_table_files = ["schema.sql", "v_schema.sql"]
+    sql_index_files = ["index.sql"]
 
-    config = pyhocon.ConfigFactory.parse_file(args.config_file)
+    config = pyhocon.ConfigFactory.parse_file(config_file)
     conn = db_connect(config.connections.databases.sqlite.path)
     conn.isolation_level = None  # Autocommit
+    input_file = input_file
     try:
         with conn:
             cursor = conn.cursor()
-            for s in sql_files:
+            for s in sql_table_files:
                 logger.info(f"  Running sql/{s}...")
                 cursor.executescript(Path(f"sql/{s}").read_text())
-        logger.info("Database (re)build completed.")
+            logger.info("Database tables (re)build completed.")
+
+            logger.info("Loading input file to db...")
+            transform_and_load(input_file, db_conn=conn)
+            logger.info("Database load completed")
+
+            for s in sql_index_files:
+                logger.info(f"  Running sql/{s}...")
+                cursor.executescript(Path(f"sql/{s}").read_text())
+            logger.info("Database index (re)build completed")
+
     except sqlite3.Error as e:
         logger.error(f"{__name__}: error running sql script", exc_info=True)
         sys.exit(1)
@@ -112,16 +146,19 @@ if __name__ == '__main__':
     argparser.add_argument('-l', '--log-file', default='main.log', metavar='main.log', help='path to logfile (default: main.log)')
     subparsers = argparser.add_subparsers()
     rebuild_parser = subparsers.add_parser('rebuild-database')
-    rebuild_parser.set_defaults(func=lambda args: rebuild_database(args))
+    rebuild_parser.add_argument('inputfile', type=str, help="input file in gzip format")
+    rebuild_parser.set_defaults(func=lambda x: rebuild_database(args.config_file, args.inputfile))
     run_parser = subparsers.add_parser('run')
     run_parser.add_argument('-t', '--run-type', choices=['api', 'stdout'], default='stdout',
                             required=True, help='where output will be provided')
-    run_parser.set_defaults(func=lambda args: run_stat(args, args.run_type))
+    run_parser.set_defaults(func=lambda x: run_stat(args, args.run_type))
 
     # configure logging
     logger = setup_logging()
     # parse commandline arguments
     args = argparser.parse_args()
+    # set config environment variable
+    os.environ["YIELDIFY_CONFIG"] = str(Path(args.config_file).absolute())
     # read config
     process_config(args)
     # run commands

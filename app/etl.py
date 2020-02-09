@@ -13,31 +13,32 @@ import geoip2.database
 from pathlib import Path
 
 
-def transform_and_load(filename=None, seperator='\t', db_path = ""):
+def transform_and_load(filename=None, seperator='\t', db_conn=None):
     """reads, transforms and loads input data to database"""
 
-    with db_connect(db_path) as conn:
-        ip_reader = geoip2.database.Reader(Path('GeoLite2/GeoLite2-City.mmdb'))
-        source = petl.io.sources.GzipSource(filename='input_data.gz', remote=False)
-        table = petl.fromtext(source=source) \
-            .capture('lines', '(.*)\\t(.*)\\t(.*)\\t(.*)\\t(.*)\\t(.*)$',
-                     ['date', 'time', 'user_id', 'url', 'ip', 'user_agent']) \
-            .addcolumn('os_family', '') \
-            .addcolumn('browser', '') \
-            .addcolumn('country', '') \
-            .addcolumn('city', '') \
-            .cutout('url') \
-            .convert({'os_family': lambda v, row: parse(row.user_agent).os.family,
-                      'browser': lambda v, row: parse(row.user_agent).browser.family,
-                      'city': lambda v, row: ip_reader.city(row.ip).city.name,
-                      'country': lambda v, row: ip_reader.city(row.ip).country.name},
-                     pass_row=True) \
-            .cutout('user_agent')
+    conn = db_conn
+    ip_reader = geoip2.database.Reader(Path('GeoLite2/GeoLite2-City.mmdb'))
+    source = petl.io.sources.GzipSource(filename='input_data.gz', remote=False)
+    table = petl.fromtext(source=source) \
+        .capture('lines', '(.*)\\t(.*)\\t(.*)\\t(.*)\\t(.*)\\t(.*)$',
+                 ['date', 'time', 'user_id', 'url', 'ip', 'user_agent']) \
+        .addcolumn('os_family', '') \
+        .addcolumn('browser', '') \
+        .addcolumn('country', '') \
+        .addcolumn('city', '') \
+        .addcolumn('device_type', '') \
+        .cutout('url') \
+        .convert({'os_family': lambda v, row: parse(row.user_agent).os.family,
+                  'browser': lambda v, row: parse(row.user_agent).browser.family,
+                  'device_type': lambda v, row: parse(row.user_agent).device.family,
+                  'city': lambda v, row: ip_reader.city(row.ip).city.name,
+                  'country': lambda v, row: ip_reader.city(row.ip).country.name},
+                 pass_row=True)
 
-        table = petl.select(table,
-                           lambda rec: rec.city is not None and \
-                                       rec.country is not None and \
-                                       rec.os_family is not None and \
-                                       rec.browser is not None)
+    table = petl.select(table,
+                        lambda rec: rec.city is not None and \
+                                    rec.country is not None and \
+                                    rec.os_family is not None and \
+                                    rec.browser is not None)
 
-        petl.todb(table, conn, 'webanalysis')
+    petl.todb(table, conn, 'webanalysis')
