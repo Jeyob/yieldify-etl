@@ -1,11 +1,13 @@
-__all__ = ["bad_request", "not_found"]
+__all__ = ["bad_request"]
 from flask import jsonify, make_response
 from . import api
+from werkzeug.exceptions import HTTPException
 
 
-class ErrorResponse:
+class ErrorResponse(Exception):
 
     def __init__(self, http_status, error_code, error_message):
+        super().__init__(self)
         self.http_status = http_status
         self.error_code = error_code
         self.error_message = error_message
@@ -29,22 +31,10 @@ class BadRequest(ErrorResponse):
         super().__init__(400, error_code, error_message)
 
 
-class NotFound(ErrorResponse):
-    """ error message for HTTP 404 response code"""
-
-    def __init__(self, http_status=404, error_code="Not Found", error_message=""):
-        super().__init__(404, error_code, error_message)
-
-
-@api.errorhandler(400)
+@api.errorhandler(BadRequest)
 def bad_request(error):
-    return make_response(
-        BadRequest(error_code="Bad request", error_message="Review your request")
-    )
+    return error.to_json()
 
 
-@api.errorhandler(404)
-def not_found(error):
-    return make_response(
-        BadRequest(error_code="Not Found", error_message="Resource could not be found, review request")
-    )
+
+

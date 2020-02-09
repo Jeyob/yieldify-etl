@@ -5,7 +5,7 @@ Available functions:
 - read_gip: opens a compressed gzip file and returns filedescriptor
 -
 """
-__all__ = ['read_gzip', 'ip_geocoding', 'db_connect']
+__all__ = ['read_gzip', 'IPDecoder', 'db_connect']
 
 
 # standard libs
@@ -15,7 +15,7 @@ from pathlib import Path
 import io
 import sqlite3
 # 3rd party libs
-import geoip2.database
+from geoip2 import database, errors
 
 logger = logging.getLogger(__name__)
 
@@ -40,22 +40,33 @@ def read_gzip(filename):
     return bfr
 
 
-def ip_geocoding(ipaddress) -> (str, str):
-    """
-    Derives country and city from IP address
-    :param ipaddress:
-    :return:
-    """
-    reader = None
-    reader = geoip2.database.Reader(Path('GeoLite2/GeoLite2-City.mmdb'))
-    try:
-        response = reader.city(ip_address=ipaddress)
-    except Exception as e:
-        print(e)
-    else:
-        return (response.country.name, response.city.name)
-    finally:
-        reader.close()
+class IPDecoder:
+    def __init__(self, db_path):
+        self.db_path = db_path
+        self.reader = database.Reader(Path(self.db_path))
+
+    def city(self, ipaddress):
+        try:
+            return self.reader.city(ipaddress).city.name
+        except ValueError as e:
+            return 'Invalid IP'
+        except errors.AddressNotFoundError as e:
+            return 'Not found'
+        except Exception:
+            pass
+
+    def country(self, ipaddress):
+        try:
+            return self.reader.city(ipaddress).country.name
+        except ValueError as e:
+            return 'Invalid IP'
+        except errors.AddressNotFoundError as e:
+            return 'Not found'
+        except Exception:
+            pass
+
+    def close(self):
+        self.reader.close()
 
 
 def db_connect(path: str) -> sqlite3.Connection:

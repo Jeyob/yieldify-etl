@@ -21,7 +21,7 @@
                 "sha256:5b26757dc6f79a3b7dc9fab95359328d5747fcb2409d331ea66d0272b90ab2a0",
                 "sha256:8b995ffe925347a2138d7ac0fe77155e4311a0ea6d6da4f5128fe4b3cbe5ed71"
             ],
-            "markers": "sys_platform == 'darwin'",
+            "markers": "platform_system == 'Darwin'",
             "version": "==0.1.0"
         },
         "backcall": {
@@ -337,11 +337,11 @@
         },
         "user-agents": {
             "hashes": [
-                "sha256:792869b990a244f71efea1cb410ecaba99a270a64c5ac37d365bde5d70d6a2fa",
-                "sha256:7af7419d61ce8f72ad487cc77ea3b4d1dcaa4cbb7b6df533a7c7aa3ccc44e5b3"
+                "sha256:da54371d856c35d8ead0622da24ad5ef6d667eda3629a750e3373a3e847a054b",
+                "sha256:e727ab6f169e829bc25d41dbd25b9ff679b4631bd81959bcf7de1e246da67194"
             ],
             "index": "pypi",
-            "version": "==2.0"
+            "version": "==2.1"
         },
         "wcwidth": {
             "hashes": [

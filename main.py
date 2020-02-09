@@ -13,8 +13,6 @@ from app import create_app
 # external libraries
 
 
-logger = logging.getLogger(__name__)
-
 
 def setup_logging():
     logging.basicConfig(level=logging.DEBUG,
@@ -103,7 +101,7 @@ def rebuild_database(config_file, input_file):
 
     config = pyhocon.ConfigFactory.parse_file(config_file)
     conn = db_connect(config.connections.databases.sqlite.path)
-    conn.isolation_level = None  # Autocommit
+    #conn.isolation_level = None  # Autocommit
     input_file = input_file
     try:
         with conn:
@@ -114,7 +112,7 @@ def rebuild_database(config_file, input_file):
             logger.info("Database tables (re)build completed.")
 
             logger.info("Loading input file to db...")
-            transform_and_load(input_file, db_conn=conn)
+            transform_and_load(input_file, conn, config.connections.databases.ip2location.path)
             logger.info("Database load completed")
 
             for s in sql_index_files:
